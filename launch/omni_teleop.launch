@@ -1,0 +1,47 @@
+<launch>
+  
+  <arg name="rviz" default="true"/>
+  <arg name="limb" default="right"/>
+  <arg name="pp_gain" default="5.0"/>
+  <arg name="slave_name" default="pr2"/>
+  <arg name="master_name" default="omni"/>
+  <arg name="publish_rate" default="250"/>
+  <arg name="frame_id" default="torso_lift_link"/>
+  
+  <!-- parameters that give you reasonable physics as well as good speed -->
+  <!-- needed so that gripper joint stops on objects instead of oscillating forever -->
+  <node name="sor_pgs_iters" pkg="dynamic_reconfigure" type="dynparam" args="set gazebo sor_pgs_iters 50"/>
+  <node name="sor_pgs_w" pkg="dynamic_reconfigure" type="dynparam" args="set gazebo sor_pgs_w 1.0"/>
+  <node name="time_step" pkg="dynamic_reconfigure" type="dynparam" args="set gazebo time_step 0.001"/>
+  
+  <!-- Start cartesian controllers -->
+  <include file="$(find pr2_omni_teleop)/launch/pr2_jt_controllers.xml"/>
+  
+  <!-- Coupling node between omni and cart controller  -->
+  <node name="omni_cart_coupling" pkg="pr2_omni_teleop" type="omni_cart_coupling.py" output="screen"> 
+    <param name="limb" type="string" value="$(arg limb)"/>
+  </node>
+  
+  <!-- Phantom node -->
+  <node name="omni_state" pkg="omni_common" type="omni_state" output="screen"> 
+    <rosparam command="load" file="$(find rate_position_controller)/config/phantom_omni.yaml" />
+    <param name="omni_name" type="string" value="$(arg master_name)"/>
+    <param name="publish_rate" value="$(arg publish_rate)"/>
+    <param name="reference_frame" value="$(arg frame_id)"/>
+  </node>
+  
+  <!-- Workspace controller -->
+  <node name="workspace_indexing" pkg="rate_position_controller" type="workspace_indexing.py" output="screen">
+    <param name="slave_name" type="string" value="$(arg slave_name)"/>
+    <param name="master_name" type="string" value="$(arg master_name)"/>
+    <param name="frame_id" type="string" value="$(arg frame_id)"/>
+    <param name="pp_gain" type="string" value="$(arg pp_gain)"/>
+    <rosparam command="load" file="$(find rate_position_controller)/config/phantom_omni.yaml" />
+  </node>
+  
+  <!-- Show in Rviz -->
+  <group if="$(arg rviz)">
+    <node name="rviz" pkg="rviz" type="rviz" output="screen" args="-d $(find pr2_omni_teleop)/config/cartesian_controller.rviz"/>
+  </group>
+  
+</launch>
